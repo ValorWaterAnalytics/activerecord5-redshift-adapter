@@ -351,6 +351,10 @@ module ActiveRecord
           @connection.server_version
         end
 
+        def postgresql_version
+          return 90514
+        end
+
         def translate_exception(exception, message)
           return exception unless exception.respond_to?(:result)
 
