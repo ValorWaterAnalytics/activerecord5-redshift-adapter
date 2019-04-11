@@ -1,7 +1,5 @@
 module ActiveRecord
   module ConnectionAdapters
-    RedshiftAdapter::NATIVE_DATABASE_TYPES[:bigserial] = { name: 'bigint IDENTITY' }
-
     class RedshiftColumn < Column #:nodoc:
       def initialize(name, default, cast_type, sql_type = nil, null = true, default_function = nil, encoding = nil)
         super name, default, cast_type, sql_type, null

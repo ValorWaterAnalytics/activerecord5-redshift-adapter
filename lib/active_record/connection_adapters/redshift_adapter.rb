@@ -85,6 +85,7 @@ module ActiveRecord
         date:        { name: "date" },
         bigint:      { name: "bigint" },
         boolean:     { name: "boolean" },
+        bigserial:   { name: 'bigint IDENTITY' }
       }
 
       OID = Redshift::OID #:nodoc:
