@@ -16,6 +16,10 @@ module ActiveRecord
           else
             super
           end
+
+          if column.encoding
+            sql << " ENCODE #{column.encoding}"
+          end
         end
       end
 
@@ -150,16 +154,16 @@ module ActiveRecord
 
         # Returns the list of all column definitions for a table.
         def columns(table_name)
-          column_definitions(table_name.to_s).map do |column_name, type, default, notnull, oid, fmod|
+          column_definitions(table_name.to_s).map do |column_name, type, default, notnull, oid, fmod, encoding|
             default_value = extract_value_from_default(default)
             type_metadata = fetch_type_metadata(column_name, type, oid, fmod)
             default_function = extract_default_function(default_value, default)
-            new_column(column_name, default_value, type_metadata, notnull == 'f', table_name, default_function)
+            new_column(column_name, default_value, type_metadata, notnull == 'f', table_name, default_function, encoding)
           end
         end
 
-        def new_column(name, default, sql_type_metadata = nil, null = true, table_name = nil, default_function = nil) # :nodoc:
-          RedshiftColumn.new(name, default, sql_type_metadata, null, table_name, default_function)
+        def new_column(name, default, sql_type_metadata = nil, null = true, table_name = nil, default_function = nil, encoding = nil) # :nodoc:
+          RedshiftColumn.new(name, default, sql_type_metadata, null, table_name, default_function, encoding)
         end
 
         # Returns the current database name.

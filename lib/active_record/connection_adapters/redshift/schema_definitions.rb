@@ -46,7 +46,17 @@ module ActiveRecord
         end
       end
 
-      class ColumnDefinition < ActiveRecord::ConnectionAdapters::ColumnDefinition
+      class ColumnDefinition < Struct.new(:name, :type, :options, :sql_type) #:nodoc:
+        [:limit, :precision, :scale, :default, :null, :collation, :comment, :encoding].each do |option_name|
+          module_eval <<-CODE, __FILE__, __LINE__ + 1
+            def #{option_name}
+              options[:#{option_name}]
+            end
+            def #{option_name}=(value)
+              options[:#{option_name}] = value
+            end
+          CODE
+        end
       end
 
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
