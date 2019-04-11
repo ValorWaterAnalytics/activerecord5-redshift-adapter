@@ -4,19 +4,31 @@ module ActiveRecord
       class SchemaCreation < AbstractAdapter::SchemaCreation
         private
 
+        def type_for_column(column)
+          super
+        end
+
         def visit_ColumnDefinition(o)
-          o.sql_type = type_to_sql(o.type, o.limit, o.precision, o.scale)
           super
         end
 
         def add_column_options!(sql, options)
           column = options.fetch(:column) { return super }
+
           if column.type == :uuid && options[:default] =~ /\(\)/
             sql << " DEFAULT #{options[:default]}"
           else
             super
           end
+
+          if column.encoding
+            sql << " ENCODE #{column.encoding}"
+          end
+
+          sql
         end
+
+        alias_method :visit_ColumnDefinitionAlt, :visit_ColumnDefinition
       end
 
       module SchemaStatements
@@ -131,7 +143,7 @@ module ActiveRecord
         end
 
         def drop_table(table_name, options = {})
-          execute "DROP TABLE #{quote_table_name(table_name)}#{' CASCADE' if options[:force] == :cascade}"
+          execute "DROP TABLE#{' IF EXISTS' if options[:if_exists]} #{quote_table_name(table_name)}#{' CASCADE' if options[:force] == :cascade}"
         end
 
         # Returns true if schema exists.
@@ -149,17 +161,18 @@ module ActiveRecord
         end
 
         # Returns the list of all column definitions for a table.
+        # Limit, precision, and scale are all handled by the superclass.
         def columns(table_name)
-          column_definitions(table_name.to_s).map do |column_name, type, default, notnull, oid, fmod|
+          column_definitions(table_name).map do |column_name, type, default, notnull, oid, fmod, encoding|
             default_value = extract_value_from_default(default)
             type_metadata = fetch_type_metadata(column_name, type, oid, fmod)
             default_function = extract_default_function(default_value, default)
-            new_column(column_name, default_value, type_metadata, notnull == 'f', table_name, default_function)
+            new_column(column_name, default_value, type_metadata, type, notnull == 'f', default_function, encoding)
           end
         end
 
-        def new_column(name, default, sql_type_metadata = nil, null = true, table_name = nil, default_function = nil) # :nodoc:
-          RedshiftColumn.new(name, default, sql_type_metadata, null, table_name, default_function)
+        def new_column(name, default, cast_type, sql_type_metadata = nil, null = true, default_function = nil, encoding = nil) # :nodoc:
+          RedshiftColumn.new(name, default, cast_type, sql_type_metadata, null, default_function, encoding)
         end
 
         # Returns the current database name.
@@ -372,7 +385,7 @@ module ActiveRecord
         end
 
         # Maps logical Rails types to PostgreSQL-specific data types.
-        def type_to_sql(type, limit = nil, precision = nil, scale = nil)
+        def type_to_sql(type, limit: nil, precision: nil, scale: nil, **)
           case type.to_s
           when 'integer'
             return 'integer' unless limit

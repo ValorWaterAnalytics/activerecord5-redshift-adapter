@@ -1,6 +1,55 @@
 module ActiveRecord
   module ConnectionAdapters
+    RedshiftAdapter::NATIVE_DATABASE_TYPES[:bigserial] = { name: 'bigint IDENTITY' }
+
+    class RedshiftColumn < Column #:nodoc:
+      def initialize(name, default, cast_type, sql_type = nil, null = true, default_function = nil, encoding = nil)
+        super name, default, cast_type, sql_type, null
+        @null = null
+        @default_function = default_function
+        @encoding = encoding
+      end
+
+      def encoding
+        @encoding
+      end
+
+      def null
+        @null
+      end
+    end
+
     module Redshift
+      class ColumnDefinitionAlt < Struct.new(:name, :type, :options, :sql_type) #:nodoc:
+
+        def primary_key?
+          options[:primary_key]
+        end
+
+        [:limit, :precision, :scale, :default, :null, :collation, :comment, :encoding].each do |option_name|
+          module_eval <<-CODE, __FILE__, __LINE__ + 1
+            def #{option_name}
+              options[:#{option_name}]
+            end
+            def #{option_name}=(value)
+              options[:#{option_name}] = value
+            end
+          CODE
+        end
+      end
+
+      class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
+        def create_column_definition(name, type, options)
+          Redshift::ColumnDefinitionAlt.new name, type, options
+        end
+
+        def new_column_definition(name, type, options) # :nodoc:
+          type = aliased_types(type.to_s, type)
+          column = create_column_definition(name, type, options)
+          column
+        end
+      end
+
       module ColumnMethods
         # Defines the primary key field.
         # Use of the native PostgreSQL UUID type is supported, and can be used
@@ -43,19 +92,6 @@ module ActiveRecord
 
         def jsonb(name, options = {})
           column(name, :jsonb, options)
-        end
-      end
-
-      class ColumnDefinition < ActiveRecord::ConnectionAdapters::ColumnDefinition
-      end
-
-      class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
-        include ColumnMethods
-
-        private
-
-        def create_column_definition(name, type)
-          Redshift::ColumnDefinition.new name, type
         end
       end
 
