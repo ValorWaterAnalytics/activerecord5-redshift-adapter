@@ -66,16 +66,16 @@ module ActiveRecord
       class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
         include ColumnMethods
 
-        private
-
-        def create_column_definition(name, type, options)
-          Redshift::ColumnDefinition.new name, type, options
-        end
-
         def new_column_definition(name, type, options) # :nodoc:
           type = aliased_types(type.to_s, type)
           column = create_column_definition(name, type, options)
           column
+        end
+
+        private
+
+        def create_column_definition(name, type, options)
+          Redshift::ColumnDefinition.new name, type, options
         end
       end
 
